@@ -3,6 +3,7 @@ package org.jabref.gui.welcome.quicksettings;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
@@ -21,6 +22,7 @@ import org.jabref.logic.l10n.Localization;
 import com.airhacks.afterburner.views.ViewLoader;
 
 public class ThemeDialog extends FXDialog {
+    @FXML private CheckBox themeSyncOs;
     @FXML private RadioButton lightRadio;
     @FXML private RadioButton darkRadio;
     @FXML private RadioButton customRadio;
@@ -77,6 +79,9 @@ public class ThemeDialog extends FXDialog {
                 updateCustomThemeVisibility(selectedType == ThemeTypes.CUSTOM);
             }
         });
+
+        themeSyncOs.selectedProperty().addListener(_ -> viewModel.setThemeSyncOs(themeSyncOs.isSelected()));
+        themeSyncOs.setSelected(viewModel.shouldThemeSyncOs());
 
         selectInitialTheme();
         updateCustomThemeVisibility(viewModel.getSelectedTheme() == ThemeTypes.CUSTOM);

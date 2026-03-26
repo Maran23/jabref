@@ -25,6 +25,7 @@ public class ThemeDialogViewModel extends AbstractViewModel {
     private final WorkspacePreferences workspacePreferences;
     private final GuiPreferences preferences;
     private final DialogService dialogService;
+    private boolean shouldThemeSyncOs;
 
     public ThemeDialogViewModel(GuiPreferences preferences, DialogService dialogService) {
         this.preferences = preferences;
@@ -35,12 +36,14 @@ public class ThemeDialogViewModel extends AbstractViewModel {
     }
 
     private void initializeFromCurrentTheme() {
+        shouldThemeSyncOs = workspacePreferences.shouldThemeSyncOs();
+
         Theme currentTheme = workspacePreferences.getTheme();
         switch (currentTheme.getType()) {
-            case DEFAULT ->
-                    selectedThemeProperty.set(ThemeTypes.LIGHT);
-            case EMBEDDED ->
-                    selectedThemeProperty.set(ThemeTypes.DARK);
+            case LIGHT ->
+                selectedThemeProperty.set(ThemeTypes.LIGHT);
+            case DARK ->
+                 selectedThemeProperty.set(ThemeTypes.DARK);
             case CUSTOM -> {
                 selectedThemeProperty.set(ThemeTypes.CUSTOM);
                 customPathProperty.set(currentTheme.getName());
@@ -87,6 +90,8 @@ public class ThemeDialogViewModel extends AbstractViewModel {
     }
 
     public void saveSettings() {
+        workspacePreferences.setThemeSyncOs(shouldThemeSyncOs);
+
         Theme newTheme = switch (selectedThemeProperty.get()) {
             case LIGHT ->
                     Theme.light();
@@ -96,5 +101,13 @@ public class ThemeDialogViewModel extends AbstractViewModel {
                     Theme.custom(customPathProperty.get().trim());
         };
         workspacePreferences.setTheme(newTheme);
+    }
+
+    public void setThemeSyncOs(boolean selected) {
+        this.shouldThemeSyncOs = selected;
+    }
+
+    public boolean shouldThemeSyncOs() {
+        return shouldThemeSyncOs;
     }
 }

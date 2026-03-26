@@ -197,10 +197,10 @@ public class GeneralTabViewModel implements PreferenceTabViewModel {
         // The light theme is in fact the absence of any theme modifying 'base.css'. Another embedded theme like
         // 'dark.css', stored in the classpath, can be introduced in {@link org.jabref.gui.theme.Theme}.
         switch (workspacePreferences.getTheme().getType()) {
-            case DEFAULT ->
-                    selectedThemeProperty.setValue(ThemeTypes.LIGHT);
-            case EMBEDDED ->
-                    selectedThemeProperty.setValue(ThemeTypes.DARK);
+            case LIGHT ->
+                 selectedThemeProperty.setValue(ThemeTypes.LIGHT);
+            case DARK ->
+                 selectedThemeProperty.setValue(ThemeTypes.DARK);
             case CUSTOM -> {
                 selectedThemeProperty.setValue(ThemeTypes.CUSTOM);
                 customPathToThemeProperty.setValue(workspacePreferences.getTheme().getName());
@@ -250,6 +250,7 @@ public class GeneralTabViewModel implements PreferenceTabViewModel {
         workspacePreferences.setShouldOverrideDefaultFontSize(fontOverrideProperty.getValue());
         workspacePreferences.setMainFontSize(Integer.parseInt(fontSizeProperty.getValue()));
 
+        workspacePreferences.setThemeSyncOs(themeSyncOsProperty.getValue());
         switch (selectedThemeProperty.get()) {
             case LIGHT ->
                     workspacePreferences.setTheme(Theme.light());
@@ -258,7 +259,6 @@ public class GeneralTabViewModel implements PreferenceTabViewModel {
             case CUSTOM ->
                     workspacePreferences.setTheme(Theme.custom(customPathToThemeProperty.getValue()));
         }
-        workspacePreferences.setThemeSyncOs(themeSyncOsProperty.getValue());
 
         workspacePreferences.setOpenLastEdited(openLastStartupProperty.getValue());
         workspacePreferences.setShowAdvancedHints(showAdvancedHintsProperty.getValue());

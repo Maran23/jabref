@@ -12,52 +12,60 @@ import org.jspecify.annotations.NonNull;
 public class Theme {
 
     public enum Type {
-        DEFAULT, EMBEDDED, CUSTOM
+        SYSTEM, LIGHT, DARK, CUSTOM
     }
 
-    public static final String BASE_CSS = "Base.css";
-    public static final String EMBEDDED_DARK_CSS = "Dark.css";
+    public static final String SYSTEM = "";
+    private static final String LIGHT = "light";
+    private static final String DARK = "dark";
+
+    private static final String BASE_CSS = "Base.css";
+    private static final String DARK_CSS = "Dark.css";
 
     private final Type type;
     private final String name;
     private final Optional<StyleSheet> additionalStylesheet;
 
     public Theme(@NonNull String name) {
-        if (name.isEmpty() || BASE_CSS.equalsIgnoreCase(name)) {
+        this.name = name;
+
+        if (name.equalsIgnoreCase(SYSTEM)) {
+            this.type = Type.SYSTEM;
             this.additionalStylesheet = Optional.empty();
-            this.type = Type.DEFAULT;
-            this.name = "";
-        } else if (EMBEDDED_DARK_CSS.equalsIgnoreCase(name)) {
-            this.additionalStylesheet = StyleSheet.create(EMBEDDED_DARK_CSS);
-            if (this.additionalStylesheet.isPresent()) {
-                this.type = Type.EMBEDDED;
-                this.name = EMBEDDED_DARK_CSS;
-            } else {
-                this.type = Type.DEFAULT;
-                this.name = "";
-            }
+        } else if (LIGHT.equalsIgnoreCase(name)
+                // FIXME: Legacy names
+                || BASE_CSS.equalsIgnoreCase(name)) {
+            this.type = Type.LIGHT;
+            this.additionalStylesheet = Optional.empty();
+        } else if (DARK.equalsIgnoreCase(name)
+                // FIXME: Legacy names
+                || DARK_CSS.equalsIgnoreCase(name)) {
+            this.type = Type.DARK;
+            this.additionalStylesheet = Optional.empty();
         } else {
             this.additionalStylesheet = StyleSheet.create(name);
             if (this.additionalStylesheet.isPresent()) {
                 this.type = Type.CUSTOM;
-                this.name = name;
             } else {
-                this.type = Type.DEFAULT;
-                this.name = "";
+                this.type = Type.SYSTEM;
             }
         }
     }
 
     public static Theme light() {
-        return new Theme("");
+        return new Theme(LIGHT);
     }
 
     public static Theme dark() {
-        return new Theme(EMBEDDED_DARK_CSS);
+        return new Theme(DARK);
     }
 
     public static Theme custom(String name) {
         return new Theme(name);
+    }
+
+    public static Theme system() {
+        return new Theme(SYSTEM);
     }
 
     /// @return the Theme type. Guaranteed to be non-null.
@@ -107,5 +115,9 @@ public class Theme {
                 "type=" + type +
                 ", name='" + name + '\'' +
                 '}';
+    }
+
+    public static StyleSheet getBaseStyleSheet() {
+        return StyleSheet.create(BASE_CSS).orElseThrow();
     }
 }

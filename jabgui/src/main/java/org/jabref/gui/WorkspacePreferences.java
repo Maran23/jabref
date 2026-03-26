@@ -59,8 +59,8 @@ public class WorkspacePreferences {
                 false,                                                      // Default font size override
                 9,                                                          // Default font size
                 9,                                                          // FixMe: main default and default default is weird
-                new Theme(Theme.BASE_CSS),                                  // Default theme
-                false,                                                      // Default theme sync with OS
+                Theme.system(),                                             // Default theme
+                true,                                                       // Default theme sync with OS
                 true,                                                       // Default open last edited
                 true,                                                       // Default show advanced hints
                 true,                                                       // Default confirm delete
