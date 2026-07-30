@@ -3,19 +3,15 @@ package org.jabref.gui.theme;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-import java.util.WeakHashMap;
 
 import javafx.application.ColorScheme;
 import javafx.application.Platform;
 import javafx.collections.ListChangeListener;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.web.WebEngine;
 import javafx.stage.Window;
 
 import org.jabref.gui.WorkspacePreferences;
@@ -32,15 +28,16 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static java.util.function.Predicate.not;
+
 /// Installs and manages style files and provides live reloading. JabRef provides themes and the ability
 /// to add a custom stylesheet on top.
 ///
 /// For a custom stylesheet, we will protect against removal of the CSS file, degrading as
-/// gracefully as possible. If the file becomes unavailable while the application is
-/// running, some Scenes that have not yet had the CSS installed may not be themed. The
-/// PreviewViewer, which uses WebEngine, supports data URLs and so generally is not
-/// affected by removal of the file; however, Theme package will not attempt to URL-encode
-/// large style sheets to protect memory usage (see {@link StyleSheetFile#MAX_IN_MEMORY_CSS_LENGTH}).
+/// gracefully as possible: the stylesheet is embedded as a `data:` URL, so scenes keep their
+/// theme if the file becomes unavailable while the application is running. Large style sheets
+/// are not URL-encoded so as to protect memory usage
+/// (see [StyleSheetFile#MAX_IN_MEMORY_CSS_LENGTH]).
 ///
 /// @see <a href="https://docs.jabref.org/advanced/custom-themes">Custom themes</a> in
 /// the JabRef documentation.
@@ -54,8 +51,8 @@ public class ThemeManager {
 
     private final WorkspacePreferences workspacePreferences;
     private final FileUpdateMonitor fileUpdateMonitor;
-    private final Set<WebEngine> webEngines = Collections.newSetFromMap(new WeakHashMap<>());
 
+    private final FileUpdateListener baseCssLiveUpdate = this::baseCssLiveUpdate;
     private final FileUpdateListener cssLiveUpdate = this::cssLiveUpdate;
     private final FileUpdateListener customCssLiveUpdate = this::customCssLiveUpdate;
 
@@ -70,6 +67,11 @@ public class ThemeManager {
 
         initializeWindowThemeUpdater();
 
+        // Watching the base CSS only works in development and test scenarios, where the build system exposes the CSS
+        // as a file (e.g. for the Gradle run task it will be in
+        // build/resources/main/org/jabref/gui/theme/internal/jabref-base.css)
+        addStylesheetToWatchlist(JABREF_BASE_STYLE_SHEET, baseCssLiveUpdate);
+
         BindingsHelper.subscribeFuture(workspacePreferences.themeProperty(), _ -> updateThemeSettings());
         BindingsHelper.subscribeFuture(workspacePreferences.colorSchemeProperty(), _ -> updateThemeSettings());
         BindingsHelper.subscribeFuture(workspacePreferences.customThemeProperty(), _ -> updateThemeSettings());
@@ -80,27 +82,21 @@ public class ThemeManager {
         updateFontSettings();
     }
 
-    /// Installs the CSS on the given scene
+    /// Installs the CSS on the given scene.
+    ///
+    /// The theme stylesheet comes first, the user's custom stylesheet on top of it, and the base
+    /// stylesheet last -- the base sheet only maps JabRef's own selectors onto the color tokens the
+    /// theme defines, so it has to win over both.
     public void updateCssOnScene(Scene scene) {
         List<String> toAdd = new ArrayList<>(3);
 
-        toAdd.add(theme.getStyleSheet().getSceneStylesheet().toExternalForm());
+        toAdd.add(theme.getStyleSheet().getSceneStylesheetLocation());
         if (customTheme != null) {
-            toAdd.add(customTheme.getSceneStylesheet().toExternalForm());
+            toAdd.add(customTheme.getSceneStylesheetLocation());
         }
-        toAdd.add(JABREF_BASE_STYLE_SHEET.getSceneStylesheet().toExternalForm());
+        toAdd.add(JABREF_BASE_STYLE_SHEET.getSceneStylesheetLocation());
 
-        scene.getStylesheets().setAll(toAdd);
-    }
-
-    /// Installs the css file as a stylesheet in the given web engine. Changes in the
-    /// css file lead to a redraw of the web engine using the new css file.
-    ///
-    /// @param webEngine the web engine to install the css into
-    public void installCssOnWebEngine(WebEngine webEngine) {
-        if (this.webEngines.add(webEngine)) {
-            webEngine.setUserStyleSheetLocation(customTheme != null ? customTheme.getWebEngineStylesheet() : "");
-        }
+        scene.getStylesheets().setAll(toAdd.stream().filter(not(String::isEmpty)).toList());
     }
 
     /// Updates the font size settings of a scene. Originally, this methods must be
@@ -234,8 +230,16 @@ public class ThemeManager {
         }
     }
 
+    private void baseCssLiveUpdate() {
+        JABREF_BASE_STYLE_SHEET.reload();
+        LOGGER.debug("Updating base CSS for all scenes");
+        UiTaskExecutor.runInJavaFXThread(this::updateCssOnAllScenes);
+    }
+
     private void cssLiveUpdate() {
-        UiTaskExecutor.runInJavaFXThread(this::updateColorSchemeOnAllScenes);
+        theme.getStyleSheet().reload();
+        LOGGER.debug("Updating theme CSS for all scenes");
+        UiTaskExecutor.runInJavaFXThread(this::updateCssOnAllScenes);
     }
 
     private void customCssLiveUpdate() {
@@ -243,17 +247,8 @@ public class ThemeManager {
             return;
         }
         customTheme.reload();
-
-        UiTaskExecutor.runInJavaFXThread(() -> {
-            webEngines.forEach(webEngine -> {
-                String newStyleSheetLocation = customTheme.getWebEngineStylesheet();
-                // force refresh by unloading style sheet, if the location hasn't changed
-                if (newStyleSheetLocation.equals(webEngine.getUserStyleSheetLocation())) {
-                    webEngine.setUserStyleSheetLocation(null);
-                }
-                webEngine.setUserStyleSheetLocation(newStyleSheetLocation);
-            });
-        });
+        LOGGER.debug("Updating custom CSS for all scenes");
+        UiTaskExecutor.runInJavaFXThread(this::updateCssOnAllScenes);
     }
 
     private void updateCssOnAllScenes() {

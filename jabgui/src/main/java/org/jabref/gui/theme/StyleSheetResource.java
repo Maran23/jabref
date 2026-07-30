@@ -17,11 +17,6 @@ final class StyleSheetResource extends StyleSheet {
     }
 
     @Override
-    public String getWebEngineStylesheet() {
-        return url.toExternalForm();
-    }
-
-    @Override
     void reload() {
         // nothing to do
     }

@@ -5,7 +5,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -13,7 +12,6 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.web.WebEngine;
 
 import org.jabref.gui.WorkspacePreferences;
 import org.jabref.gui.util.DefaultFileUpdateMonitor;
@@ -27,7 +25,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Answers;
 import org.testfx.framework.junit5.ApplicationExtension;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -98,12 +95,12 @@ class ThemeManagerTest {
 
         StyleSheet customTheme = themeManager.getCustomTheme();
         assertCustomStyleSheet(styleSheet, customTheme, testCss);
-        assertEquals("", customTheme.getWebEngineStylesheet());
+        assertEquals("", customTheme.getSceneStylesheetLocation());
 
         Files.writeString(testCss, TEST_CSS_CONTENT, StandardOpenOption.CREATE);
 
         assertCustomStyleSheet(styleSheet, customTheme, testCss);
-        assertEquals(TEST_CSS_DATA, customTheme.getWebEngineStylesheet());
+        assertEquals(TEST_CSS_DATA, customTheme.getSceneStylesheetLocation());
     }
 
     @Test
@@ -128,17 +125,17 @@ class ThemeManagerTest {
         StyleSheet customTheme = themeManager.getCustomTheme();
         assertCustomStyleSheet(styleSheet, customTheme, largeCssTestFile);
         assertNotNull(customTheme, "expected custom theme location to be available");
-        assertTrue(customTheme.getSceneStylesheet().toExternalForm().startsWith("file:"), "expected large custom theme to be a file");
+        assertTrue(customTheme.getSceneStylesheetLocation().startsWith("file:"), "expected large custom theme to be a file");
 
         Files.move(largeCssTestFile, largeCssTestFile.resolveSibling("renamed.css"));
 
-        assertEquals("", themeManager.getCustomTheme().getWebEngineStylesheet(),
-                "didn't expect additional stylesheet after css was deleted");
+        assertEquals("", themeManager.getCustomTheme().getSceneStylesheetLocation(),
+                "didn't expect a custom stylesheet after css was deleted");
 
         Files.move(largeCssTestFile.resolveSibling("renamed.css"), largeCssTestFile);
 
         assertCustomStyleSheet(styleSheet, customTheme, largeCssTestFile);
-        String cssLocationAfterFileIsRestored = themeManager.getCustomTheme().getWebEngineStylesheet();
+        String cssLocationAfterFileIsRestored = themeManager.getCustomTheme().getSceneStylesheetLocation();
         assertNotNull(cssLocationAfterFileIsRestored, "expected custom theme location to be available");
         assertTrue(cssLocationAfterFileIsRestored.startsWith("file:"), "expected large custom theme to be a file");
     }
@@ -161,32 +158,9 @@ class ThemeManagerTest {
 
         themeManager.updateCssOnScene(scene);
 
+        // theme stylesheet, custom stylesheet and base stylesheet
         assertEquals(3, scene.getStylesheets().size());
-        assertTrue(scene.getStylesheets().contains(testCss.toUri().toURL().toExternalForm()));
-    }
-
-    @Test
-    void installThemeOnWebEngine() throws IOException {
-        Path testCss = tempFolder.resolve("reload.css");
-        Files.writeString(testCss, TEST_CSS_CONTENT, StandardOpenOption.CREATE);
-        WorkspacePreferences workspacePreferences = mock(WorkspacePreferences.class, Answers.RETURNS_DEEP_STUBS);
-        when(workspacePreferences.getTheme()).thenReturn(ThemePreset.JABREF);
-
-        Optional<StyleSheet> styleSheet = StyleSheet.create(testCss.toString());
-        when(workspacePreferences.getCustomTheme()).thenReturn(styleSheet);
-
-        ThemeManager themeManager = createThemeManager(workspacePreferences);
-
-        CompletableFuture<String> webEngineStyleSheetLocation = new CompletableFuture<>();
-
-        Platform.runLater(() -> {
-            WebEngine webEngine = new WebEngine();
-            themeManager.installCssOnWebEngine(webEngine);
-
-            webEngineStyleSheetLocation.complete(webEngine.getUserStyleSheetLocation());
-        });
-
-        assertDoesNotThrow(() -> assertEquals(TEST_CSS_DATA, webEngineStyleSheetLocation.get()));
+        assertTrue(scene.getStylesheets().contains(TEST_CSS_DATA));
     }
 
     /// Since the DefaultFileUpdateMonitor runs in a separate thread we have to wait for some arbitrary number of msecs
@@ -201,7 +175,7 @@ class ThemeManagerTest {
         Optional<StyleSheet> styleSheet = StyleSheet.create(testCss.toString());
         when(workspacePreferences.getCustomTheme()).thenReturn(styleSheet);
 
-        assertEquals(TEST_CSS_DATA, styleSheet.orElseThrow().getWebEngineStylesheet());
+        assertEquals(TEST_CSS_DATA, styleSheet.orElseThrow().getSceneStylesheetLocation());
 
         DefaultFileUpdateMonitor fileUpdateMonitor = new DefaultFileUpdateMonitor();
         Thread thread = new Thread(fileUpdateMonitor);
@@ -231,7 +205,7 @@ class ThemeManagerTest {
         thread.join();
 
         assertEquals("data:text/css;charset=utf-8;base64,LyogQW5kIG5vdyBmb3Igc29tZXRoaW5nIHNsaWdodGx5IGRpZmZlcmVudCAqLwouY29kZS1hcmVhIC50ZXh0IHsKICAgIC1meC1mb250LWZhbWlseTogc2VyaWY7Cn0=",
-                styleSheet.orElseThrow().getWebEngineStylesheet(), "stylesheet embedded in data: url should have reloaded");
+                styleSheet.orElseThrow().getSceneStylesheetLocation(), "stylesheet embedded in data: url should have reloaded");
     }
 
     private ThemeManager createThemeManager(WorkspacePreferences workspacePreferences) {

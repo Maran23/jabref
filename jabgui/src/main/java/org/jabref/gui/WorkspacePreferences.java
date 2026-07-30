@@ -144,10 +144,6 @@ public class WorkspacePreferences {
         return theme;
     }
 
-    public ThemeColorScheme shouldThemeSyncOs() {
-        return colorScheme.get();
-    }
-
     public ObjectProperty<ThemeColorScheme> colorSchemeProperty() {
         return colorScheme;
     }
